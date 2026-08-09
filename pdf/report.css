@@ -1,0 +1,459 @@
+@page {
+  size: A4;
+  margin: 18mm 16mm 19mm 18mm;
+
+  @top-left {
+    content: string(section);
+    color: #607086;
+    font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+    font-size: 7pt;
+  }
+
+  @top-right {
+    content: "__REPORT_VERSION__";
+    color: #8190a3;
+    font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+    font-size: 7pt;
+  }
+
+  @bottom-left {
+    content: "大队长出品 · fqsx@mail.ustc.edu.cn";
+    color: #8b98a9;
+    font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+    font-size: 6.7pt;
+  }
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    color: #607086;
+    font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+    font-size: 7pt;
+  }
+}
+
+@page cover {
+  margin: 0;
+  background: #08182d;
+
+  @top-left { content: none; }
+  @top-right { content: none; }
+  @bottom-left { content: none; }
+  @bottom-right { content: none; }
+}
+
+:root {
+  color: #182536;
+  font-family: "Songti SC", "STSong", "Noto Serif CJK SC", serif;
+  font-size: 9.35pt;
+  line-height: 1.67;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  orphans: 3;
+  widows: 3;
+}
+
+.cover {
+  page: cover;
+  position: relative;
+  height: 297mm;
+  overflow: hidden;
+  padding: 37mm 25mm 23mm;
+  color: #f5f8fc;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(46, 194, 190, 0.23), transparent 24%),
+    radial-gradient(circle at 13% 77%, rgba(70, 132, 255, 0.18), transparent 28%),
+    linear-gradient(145deg, #071529 0%, #0b2340 62%, #0a3446 100%);
+  break-after: page;
+}
+
+.cover-grid {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  opacity: 0.18;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.09) 0.35mm, transparent 0.35mm),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 0.35mm, transparent 0.35mm);
+  background-size: 18mm 18mm;
+  transform: rotate(-8deg) scale(1.2);
+}
+
+.cover-kicker,
+.cover h1,
+.cover-subtitle,
+.cover-rule,
+.cover-deck,
+.cover-topics,
+.cover-meta,
+.cover-brand {
+  position: relative;
+}
+
+.cover-kicker {
+  margin-bottom: 24mm;
+  color: #7ce0da;
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  font-size: 8.2pt;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.cover h1 {
+  width: 150mm;
+  margin: 0;
+  color: #ffffff;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 29pt;
+  font-weight: 700;
+  line-height: 1.24;
+  letter-spacing: 0.02em;
+}
+
+.cover-subtitle {
+  margin: 7mm 0 0;
+  color: #b9c9dc;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 14pt;
+  font-weight: 500;
+}
+
+.cover-rule {
+  width: 24mm;
+  height: 1.2mm;
+  margin-top: 14mm;
+  background: #4dd3ca;
+}
+
+.cover-deck {
+  width: 143mm;
+  margin: 8mm 0 0;
+  color: #d7e1ec;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.8;
+}
+
+.cover-topics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3mm;
+  width: 150mm;
+  margin-top: 13mm;
+}
+
+.cover-topics span {
+  padding: 1.5mm 3.4mm 1.7mm;
+  border: 0.35mm solid rgba(124, 224, 218, 0.46);
+  border-radius: 9mm;
+  color: #dff8f5;
+  background: rgba(5, 25, 45, 0.38);
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 7.5pt;
+}
+
+.cover-meta {
+  position: absolute;
+  left: 25mm;
+  right: 25mm;
+  bottom: 31mm;
+  color: #9fb0c5;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 7.4pt;
+  line-height: 1.55;
+}
+
+.cover-meta p {
+  margin: 0;
+}
+
+.cover-brand {
+  position: absolute;
+  right: 25mm;
+  bottom: 16mm;
+  color: #75c9c7;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 7pt;
+}
+
+.watermark {
+  position: fixed;
+  top: 47%;
+  left: 20%;
+  z-index: -1;
+  color: rgba(33, 56, 79, 0.032);
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 42pt;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  transform: rotate(-27deg);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #0b3454;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-weight: 700;
+  line-height: 1.34;
+  break-after: avoid;
+}
+
+h2,
+h3 {
+  string-set: section content();
+}
+
+h2 {
+  margin: 0 0 8mm;
+  padding: 0 0 4mm;
+  border-bottom: 0.8mm solid #27a9a1;
+  font-size: 20pt;
+  break-before: page;
+}
+
+.chapter-title,
+.appendix-title {
+  break-before: page;
+}
+
+.volume-title + .chapter-title {
+  margin-top: 11mm;
+  break-before: auto;
+}
+
+h2#appendices + .appendix-title {
+  margin-top: 11mm;
+  break-before: auto;
+}
+
+h3 {
+  margin: 0 0 7mm;
+  padding-left: 4mm;
+  border-left: 1.6mm solid #27a9a1;
+  font-size: 15pt;
+  break-before: auto;
+}
+
+h4 {
+  margin: 7mm 0 3mm;
+  color: #174d71;
+  font-size: 11.2pt;
+}
+
+h5 {
+  margin: 5mm 0 2.3mm;
+  color: #315b76;
+  font-size: 9.6pt;
+}
+
+.chapter-references {
+  color: #42586b;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 7.85pt;
+  line-height: 1.42;
+}
+
+.chapter-references h4 {
+  margin-top: 5mm;
+  margin-bottom: 2mm;
+}
+
+.chapter-references p {
+  margin-bottom: 1.35mm;
+  text-align: left;
+}
+
+p {
+  margin: 0 0 3.1mm;
+  text-align: justify;
+}
+
+strong {
+  color: #0f3e5d;
+  font-weight: 700;
+}
+
+em {
+  color: #395568;
+}
+
+a {
+  color: #087e86;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+hr {
+  height: 0;
+  margin: 8mm 0;
+  border: 0;
+  border-top: 0.35mm solid #c8d2dd;
+}
+
+blockquote {
+  margin: 4mm 0 5mm;
+  padding: 3.4mm 4.5mm;
+  border-left: 1.1mm solid #43b7af;
+  color: #39566d;
+  background: #f2f8f8;
+  break-inside: avoid;
+}
+
+blockquote p:last-child {
+  margin-bottom: 0;
+}
+
+ul,
+ol {
+  margin: 2.4mm 0 4mm;
+  padding-left: 7mm;
+}
+
+li {
+  margin-bottom: 1.2mm;
+}
+
+li::marker {
+  color: #14958e;
+}
+
+.toc {
+  margin: 3mm 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 10.5pt;
+}
+
+.toc li {
+  margin: 0;
+  padding: 3.5mm 0;
+  border-bottom: 0.3mm solid #d9e1e8;
+}
+
+.toc a {
+  display: block;
+  color: #153f5c;
+}
+
+.toc a::after {
+  content: leader(".") target-counter(attr(href), page);
+  color: #748496;
+}
+
+table {
+  width: 100%;
+  margin: 4mm 0 6mm;
+  border-collapse: collapse;
+  table-layout: auto;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 7.05pt;
+  line-height: 1.42;
+}
+
+thead {
+  display: table-header-group;
+}
+
+tr {
+  break-inside: avoid;
+}
+
+th,
+td {
+  padding: 1.8mm 2mm;
+  border: 0.25mm solid #c7d1db;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+th {
+  color: #ffffff;
+  background: #1d5b78;
+  font-weight: 700;
+  text-align: left;
+}
+
+tbody tr:nth-child(even) td {
+  background: #f4f7fa;
+}
+
+figure {
+  margin: 6mm 0 7mm;
+  text-align: center;
+  break-inside: avoid;
+}
+
+figure img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 215mm;
+  margin: 0 auto;
+  object-fit: contain;
+}
+
+figcaption {
+  margin-top: 2.5mm;
+  color: #5c6b7d;
+  font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
+  font-size: 7.2pt;
+  line-height: 1.45;
+}
+
+code,
+pre {
+  font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+code {
+  padding: 0.2mm 0.8mm;
+  border-radius: 0.8mm;
+  color: #23435a;
+  background: #eef2f5;
+  font-size: 0.9em;
+}
+
+pre {
+  margin: 4mm 0 5mm;
+  padding: 3.5mm 4mm;
+  border-left: 1mm solid #3aa9a2;
+  color: #dfe9f3;
+  background: #102438;
+  font-size: 7.5pt;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  break-inside: avoid;
+}
+
+pre code {
+  padding: 0;
+  color: inherit;
+  background: transparent;
+}
+
+sup,
+sub {
+  line-height: 0;
+}
+
+@media print {
+  a[href^="http"]::after {
+    content: "";
+  }
+}

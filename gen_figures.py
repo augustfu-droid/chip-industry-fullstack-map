@@ -1,48 +1,95 @@
+"""批量生成芯片产业链报告插图。
+
+- 统一配色（与 PDF 设计语言对齐）
+- 自动选择可用中文字体
+- 默认输出到仓库内的 ``figures/``，支持命令行覆盖目录和 DPI
 """
-v1.6 批量生成芯片产业链报告插图
-- 统一配色 (与 PDF 设计语言对齐: TEAL #01696F, GOLD #D19900, BROWN #6E522B, BG #F7F6F2)
-- 中文字体: Noto Sans CJK SC
-- 输出: /home/user/workspace/figures/*.png  (高分辨率 200dpi)
-"""
-import os
+import argparse
+from pathlib import Path
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-from matplotlib.patches import FancyBboxPatch, Rectangle, FancyArrowPatch, Wedge, Circle
+from matplotlib.patches import Circle, FancyBboxPatch, Rectangle
 import matplotlib.font_manager as fm
+from matplotlib.ft2font import FT2Font
+from matplotlib.colors import to_rgb
+from matplotlib.text import Text
 import numpy as np
 
+PROJECT_DIR = Path(__file__).resolve().parent
+DEFAULT_OUT_DIR = PROJECT_DIR / 'figures'
+DEFAULT_DPI = 200
+OUT_DIR = DEFAULT_OUT_DIR
+OUTPUT_DPI = DEFAULT_DPI
+SELECTED_FONT_CHARMAP = set()
+SELECTED_FONT_NAME = None
+
 # ---- 中文字体 ----
-# 使用 NotoSansSC 本地 ttf (与 PDF builder 同一套)
-CJK_REGULAR = '/home/user/workspace/fonts/NotoSansSC-Regular.ttf'
-CJK_BOLD = '/home/user/workspace/fonts/NotoSansSC-Bold.ttf'
-for fp in (CJK_REGULAR, CJK_BOLD):
-    if os.path.exists(fp):
-        fm.fontManager.addfont(fp)
+# 优先使用仓库内字体；兼容原构建环境和常见 Linux 字体目录。
+FONT_FILES = (
+    PROJECT_DIR / 'fonts/NotoSansSC-Regular.ttf',
+    PROJECT_DIR / 'fonts/NotoSansSC-Bold.ttf',
+    Path('/home/user/workspace/fonts/NotoSansSC-Regular.ttf'),
+    Path('/home/user/workspace/fonts/NotoSansSC-Bold.ttf'),
+    Path('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc'),
+    Path('/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'),
+)
 
-# fallback to system Noto CJK
-for fp in ('/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc',
-           '/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc'):
-    if os.path.exists(fp):
+CJK_FONT_CANDIDATES = (
+    'Noto Sans SC',
+    'Noto Sans CJK SC',
+    'Noto Sans CJK JP',
+    'Source Han Sans SC',
+    'Microsoft YaHei',
+    'PingFang SC',
+    'Arial Unicode MS',
+    'PingFang HK',
+    'WenQuanYi Zen Hei',
+)
+
+
+def _configure_cjk_font():
+    """选择真正覆盖常用中文字符的字体，避免静默生成方框字。"""
+    global SELECTED_FONT_CHARMAP, SELECTED_FONT_NAME
+
+    load_errors = []
+    for font_path in FONT_FILES:
+        if font_path.exists():
+            try:
+                fm.fontManager.addfont(font_path)
+            except Exception as exc:
+                load_errors.append(f'{font_path}: {exc}')
+
+    available = {font.name for font in fm.fontManager.ttflist}
+    probe = set('芯片产业链图表')
+    for candidate in CJK_FONT_CANDIDATES:
+        if candidate not in available:
+            continue
         try:
-            fm.fontManager.addfont(fp)
-        except Exception:
-            pass
+            font_file = fm.findfont(candidate, fallback_to_default=False)
+            charmap = FT2Font(font_file).get_charmap()
+        except Exception as exc:
+            load_errors.append(f'{candidate}: {exc}')
+            continue
+        if all(ord(char) in charmap for char in probe):
+            plt.rcParams['font.family'] = [candidate]
+            plt.rcParams['axes.unicode_minus'] = False
+            SELECTED_FONT_NAME = candidate
+            SELECTED_FONT_CHARMAP = set(charmap)
+            print(f'using font: {candidate}')
+            return
 
-# 查实际可用 family
-_avail = {f.name for f in fm.fontManager.ttflist}
-for cand in ('Noto Sans SC', 'Noto Sans CJK SC', 'Noto Sans CJK JP', 'WenQuanYi Zen Hei', 'DejaVu Sans'):
-    if cand in _avail:
-        plt.rcParams['font.family'] = [cand]
-        print(f'using font: {cand}')
-        break
-plt.rcParams['axes.unicode_minus'] = False
+    details = f"\n字体加载错误：{'; '.join(load_errors)}" if load_errors else ''
+    raise RuntimeError(
+        '未找到覆盖中文字符的字体。请安装 Noto Sans CJK SC / 思源黑体后重试。'
+        f'{details}'
+    )
 
 # ---- 调色板 (财经/科技调) ----
 TEAL = '#01696F'
 TEAL_LIGHT = '#5BA8AC'
-GOLD = '#D19900'
+GOLD = '#7A5A00'
 GOLD_LIGHT = '#E8C76A'
 BROWN = '#6E522B'
 BG = '#F7F6F2'
@@ -53,10 +100,33 @@ BLUE = '#2E5C8A'
 GREEN = '#3F7A4A'
 PURPLE = '#7A4A7A'
 
-PALETTE = [TEAL, GOLD, BROWN, BLUE, GREEN, PURPLE, RED, TEAL_LIGHT, GOLD_LIGHT]
+def _relative_luminance(color):
+    channels = []
+    for channel in to_rgb(color):
+        channels.append(
+            channel / 12.92
+            if channel <= 0.04045
+            else ((channel + 0.055) / 1.055) ** 2.4
+        )
+    return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2]
 
-OUT_DIR = '/home/user/workspace/figures'
-os.makedirs(OUT_DIR, exist_ok=True)
+
+def _contrast_ratio(foreground, background):
+    lighter, darker = sorted(
+        (_relative_luminance(foreground), _relative_luminance(background)),
+        reverse=True,
+    )
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+def _readable_text_color(background):
+    """在深色正文和白色之间选择对比度更高者。"""
+    candidates = (TEXT, '#FFFFFF')
+    selected = max(candidates, key=lambda color: _contrast_ratio(color, background))
+    ratio = _contrast_ratio(selected, background)
+    if ratio < 4.5:
+        raise ValueError(f'标签配色对比度不足：{selected} / {background} = {ratio:.2f}:1')
+    return selected
 
 
 def _style(ax, title=None, xlabel=None, ylabel=None, grid_axis='y'):
@@ -79,9 +149,21 @@ def _style(ax, title=None, xlabel=None, ylabel=None, grid_axis='y'):
 
 
 def _save(fig, name):
-    path = os.path.join(OUT_DIR, name + '.png')
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    path = OUT_DIR / f'{name}.png'
     fig.patch.set_facecolor(BG)
-    fig.savefig(path, dpi=200, bbox_inches='tight', facecolor=BG)
+    missing_glyphs = {
+        char
+        for text_object in fig.findobj(match=Text)
+        for char in text_object.get_text()
+        if ord(char) > 127
+        and not char.isspace()
+        and ord(char) not in SELECTED_FONT_CHARMAP
+    }
+    if missing_glyphs:
+        missing = ''.join(sorted(missing_glyphs))
+        raise RuntimeError(f'字体 {SELECTED_FONT_NAME} 缺少图中字符：{missing}')
+    fig.savefig(path, dpi=OUTPUT_DPI, bbox_inches='tight', facecolor=BG)
     plt.close(fig)
     print('  ✓', path)
     return path
@@ -152,8 +234,17 @@ def fig_industry_overview():
 
     for title, items, color, x0, y0 in sections:
         ax.add_patch(FancyBboxPatch((x0, y0-0.1), 2.5, 0.6, boxstyle='round,pad=0.04',
-                                      facecolor=color, edgecolor='none', alpha=0.85))
-        ax.text(x0+1.25, y0+0.2, title, ha='center', va='center', fontsize=11, color='white', fontweight='bold')
+                                      facecolor=color, edgecolor='none'))
+        ax.text(
+            x0 + 1.25,
+            y0 + 0.2,
+            title,
+            ha='center',
+            va='center',
+            fontsize=11,
+            color=_readable_text_color(color),
+            fontweight='bold',
+        )
         for i, (name, vol) in enumerate(items):
             yy = y0 - 0.9 - i*1.5
             ax.add_patch(FancyBboxPatch((x0, yy-0.55), 2.5, 1.1, boxstyle='round,pad=0.04',
@@ -163,9 +254,9 @@ def fig_industry_overview():
 
     # 底部地缘政治带
     ax.add_patch(FancyBboxPatch((0.5, 0.3), 13.0, 0.7, boxstyle='round,pad=0.05',
-                                  facecolor=RED, edgecolor='none', alpha=0.85))
-    ax.text(7, 0.65, '卷十 · 地缘政治 / 产业政策 / 投资框架  ——  贯穿全链的宏观变量', ha='center', va='center',
-            fontsize=11, color='white', fontweight='bold')
+                                  facecolor=RED, edgecolor='none'))
+    ax.text(7, 0.65, '卷十 · 地缘政治 / 产业政策 / 产业研究框架  ——  贯穿全链的宏观变量', ha='center', va='center',
+            fontsize=11, color=_readable_text_color(RED), fontweight='bold')
 
     # 上下游箭头
     for x in (3.0, 6.5, 10.0):
@@ -190,32 +281,37 @@ def fig_node_roadmap():
     ax.add_patch(Rectangle((2019, 2.8), 12, 0.12, color=TEAL, alpha=0.5))
 
     milestones = [
-        (2020, 'N5 / 5nm\nFinFET 极限', '台积电', TEAL, 'top'),
-        (2022, 'N3 / 3nm\nFinFET 最后一代', '台积电 / 三星', TEAL, 'bottom'),
-        (2022, 'SF3 GAA\nNanosheet 首发', '三星', GOLD, 'top'),
-        (2025, 'N2 / 2nm\nGAA Nanosheet', '台积电', GOLD, 'top'),
-        (2025, '18A\nRibbonFET + BSPDN', 'Intel', BROWN, 'bottom'),
-        (2026, 'A14 / 1.4nm', '台积电', GOLD, 'bottom'),
-        (2027, '14A\nHigh-NA EUV', 'Intel', BROWN, 'top'),
-        (2028, 'A10 / 1nm\nCFET 预研', '台积电', RED, 'top'),
-        (2030, 'CFET 量产\n3D 堆叠晶体管', '行业目标', RED, 'bottom'),
+        (2020, 'N5 / 5nm\nFinFET 极限', '台积电', TEAL, 'top', 2020.0),
+        (2022, 'N3 / 3nm\nFinFET 最后一代', '台积电 / 三星', TEAL, 'bottom', 2022.0),
+        (2022, 'SF3 GAA\nNanosheet 首发', '三星', GOLD, 'top', 2022.0),
+        (2025, 'N2 / 2nm\nGAA Nanosheet', '台积电', GOLD, 'top', 2025.0),
+        (2025, '18A\nRibbonFET\n+ BSPDN', 'Intel', BROWN, 'bottom', 2024.55),
+        (2026, 'A14 / 1.4nm', '台积电', GOLD, 'bottom', 2026.15),
+        (2027, '14A\nHigh-NA EUV', 'Intel', BROWN, 'top', 2026.9),
+        (2028, 'A10 / 1nm\nCFET 预研', '台积电', RED, 'top', 2028.25),
+        (2030, 'CFET 量产\n3D 堆叠晶体管', '行业目标', RED, 'bottom', 2030.0),
     ]
 
-    for year, label, vendor, color, side in milestones:
-        y_label = 4.5 if side == 'top' else 1.0
+    box_width = 1.15
+    box_height = 1.15
+    for year, label, vendor, color, side, label_x in milestones:
+        y_label = 4.5 if side == 'top' else 1.25
         y_marker = 3.0 if side == 'top' else 2.7
-        ax.plot([year, year], [y_marker, y_label - (0.3 if side == 'top' else -0.3)],
+        box_edge_y = y_label - box_height / 2 if side == 'top' else y_label + box_height / 2
+        ax.plot([year, label_x], [y_marker, box_edge_y],
                 color=color, linewidth=1.0, alpha=0.6)
         ax.add_patch(Circle((year, 2.86), 0.13, color=color, zorder=5))
-        ax.add_patch(FancyBboxPatch((year - 0.55, y_label - 0.45), 1.1, 0.9, boxstyle='round,pad=0.02',
+        ax.add_patch(FancyBboxPatch((label_x - box_width / 2, y_label - box_height / 2),
+                                      box_width, box_height, boxstyle='round,pad=0.02',
                                       facecolor='white', edgecolor=color, linewidth=1.3))
-        ax.text(year, y_label + 0.15, label, ha='center', va='center', fontsize=8, color=TEXT, fontweight='bold')
-        ax.text(year, y_label - 0.28, vendor, ha='center', va='center', fontsize=7, color=color)
+        ax.text(label_x, y_label + 0.16, label, ha='center', va='center', fontsize=7.6,
+                color=TEXT, fontweight='bold', linespacing=1.05)
+        ax.text(label_x, y_label - 0.38, vendor, ha='center', va='center', fontsize=7, color=color)
 
     for y in range(2019, 2032, 2):
         ax.text(y, 2.4, str(y), ha='center', va='top', fontsize=9, color=MUTED, fontweight='bold')
 
-    ax.text(2025, 5.5, '图 3.x  全球先进制程演进时间线 (FinFET → GAA Nanosheet → CFET)',
+    ax.text(2025, 5.5, '图 10.1  全球先进制程演进时间线 (FinFET → GAA Nanosheet → CFET)',
             ha='center', fontsize=13, color=TEXT, fontweight='bold')
 
     # Legend
@@ -238,20 +334,22 @@ def fig_node_roadmap():
 def fig_litho_roadmap():
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.patch.set_facecolor(BG)
-    _style(ax, title='图 4.x  EUV 光刻系统路线: NA / 单次曝光极限 / 量产节点',
+    _style(ax, title='图 9.1  EUV 光刻系统路线: NA / 单次曝光极限 / 量产节点',
            xlabel='年份', ylabel='单次曝光最小线宽 (nm)')
 
-    years = [2019, 2021, 2023, 2025, 2027, 2030]
-    line_width = [13.5, 13.0, 12.5, 8.5, 8.0, 5.5]  # 单次曝光极限 (nm) 简化口径
+    # 各系列独立建模，避免把 High-NA 首点错误连接到 NA=0.33 路线。
+    nxe_years = [2019, 2021, 2023]
+    nxe_line_width = [13.5, 13.0, 12.5]
+    high_na_years = [2025, 2027, 2030]
+    high_na_line_width = [8.5, 8.0, 5.5]
+    hyper_na_years = [2029, 2031]
+    hyper_na_line_width = [5.5, 4.0]
 
-    # NA = 0.33 (NXE)
-    ax.plot(years[:4], line_width[:4], 'o-', color=TEAL, linewidth=2.5, markersize=9,
+    ax.plot(nxe_years, nxe_line_width, 'o-', color=TEAL, linewidth=2.5, markersize=9,
             label='NXE:3400/3600 系列 (NA=0.33)')
-    # High-NA 0.55
-    ax.plot(years[3:], line_width[3:], 's-', color=GOLD, linewidth=2.5, markersize=9,
+    ax.plot(high_na_years, high_na_line_width, 's-', color=GOLD, linewidth=2.5, markersize=9,
             label='EXE:5000 系列 (High-NA, NA=0.55)')
-    # Hyper-NA 0.75 (虚线)
-    ax.plot([2029, 2031], [5.5, 4.0], '^--', color=RED, linewidth=2, markersize=9, alpha=0.7,
+    ax.plot(hyper_na_years, hyper_na_line_width, '^--', color=RED, linewidth=2, markersize=9, alpha=0.7,
             label='Hyper-NA (NA=0.75, 规划)')
 
     annotations = [
@@ -277,7 +375,7 @@ def fig_litho_roadmap():
 def fig_packaging_quadrant():
     fig, ax = plt.subplots(figsize=(11, 8))
     fig.patch.set_facecolor(BG)
-    _style(ax, title='图 5.x  先进封装家族: 互连密度 vs 集成层次',
+    _style(ax, title='图 17.1  先进封装家族: 互连密度 vs 集成层次',
            xlabel='互连密度 (I/O per mm² , log)', ylabel='集成层次 ▶  (2D → 2.5D → 3D)',
            grid_axis='both')
 
@@ -314,7 +412,7 @@ def fig_packaging_quadrant():
 def fig_hbm_evolution():
     fig, ax = plt.subplots(figsize=(12, 6.5))
     fig.patch.set_facecolor(BG)
-    _style(ax, title='图 6.x  HBM 高带宽内存代际演进 (容量 / 带宽 / 堆叠层数)',
+    _style(ax, title='图 20.1  HBM 高带宽内存代际演进 (容量 / 带宽 / 堆叠层数)',
            xlabel='', ylabel='单 Stack 带宽 (GB/s)')
 
     gens = ['HBM2', 'HBM2E', 'HBM3', 'HBM3E', 'HBM4', 'HBM4E', 'HBM5']
@@ -352,8 +450,13 @@ def fig_hbm_evolution():
 def fig_ai_chip_bubble():
     fig, ax = plt.subplots(figsize=(12, 7.5))
     fig.patch.set_facecolor(BG)
-    _style(ax, title='图 7.x  AI 训练芯片格局: 算力 vs 显存 vs 单卡价格 (2024-2025)',
-           xlabel='单卡 BF16 算力 (PFLOPS)', ylabel='HBM 显存容量 (GB)', grid_axis='both')
+    _style(
+        ax,
+        title='图 22.1  AI 训练芯片格局: 算力 vs 高速存储 vs 价格量级 (2024-2025)',
+        xlabel='单卡 BF16 算力 (PFLOPS)',
+        ylabel='高速存储容量 (GB；HBM / 片上 SRAM)',
+        grid_axis='both',
+    )
 
     # (name, BF16 PFLOPS, HBM GB, price kUSD, color)
     chips = [
@@ -372,21 +475,63 @@ def fig_ai_chip_bubble():
         ('华为昇腾 910B',     0.376, 64,  15, GREEN),
     ]
 
+    label_offsets = {
+        'NVIDIA H100': (10, -18),
+        'NVIDIA H200': (-10, 8),
+        'AMD MI300X': (12, -13),
+        'AMD MI325X': (12, 9),
+        'Intel Gaudi 3': (12, 8),
+        'Google TPU v5p': (-28, 14),
+        'Google TPU v6e': (12, 10),
+        'AWS Trainium2': (20, -14),
+        'Cerebras WSE-3': (25, -18),
+        '华为昇腾 910B': (-5, 18),
+    }
     for name, flops, hbm, price, color in chips:
-        s = min(price, 80) * 18 + 50
-        ax.scatter(flops, hbm, s=s, color=color, alpha=0.65, edgecolor='white', linewidth=1.5)
-        ax.text(flops, hbm + 8, name, ha='center', fontsize=8, color=TEXT, fontweight='bold')
+        # 价格跨度从单卡到系统级，使用对数面积映射，避免截断后仍声称成比例。
+        size = (np.log10(price) + 0.5) * 360
+        ax.scatter(flops, hbm, s=size, color=color, alpha=0.65, edgecolor='white', linewidth=1.5)
+        dx, dy = label_offsets.get(name, (0, 8))
+        ax.annotate(
+            name,
+            (flops, hbm),
+            xytext=(dx, dy),
+            textcoords='offset points',
+            ha='center',
+            fontsize=8,
+            color=TEXT,
+            fontweight='bold',
+        )
 
-    ax.set_xlim(0, 5.5)
+    ax.set_xlim(-0.2, 5.5)
     ax.set_ylim(0, 420)
 
-    # Legend (vendor)
+    # 使用代理对象生成图例，不在数据坐标中绘制“假数据点”。
     vendors = [('NVIDIA', TEAL), ('AMD', BLUE), ('Intel', BROWN), ('Google', GOLD),
                ('AWS', PURPLE), ('Cerebras', RED), ('华为', GREEN)]
-    for i, (n, c) in enumerate(vendors):
-        ax.scatter(0.2, 380 - i*22, s=180, color=c, alpha=0.7)
-        ax.text(0.4, 380 - i*22, n, va='center', fontsize=9, color=TEXT)
-    ax.text(2.0, 400, '气泡大小 ∝ 单卡价格 (Cerebras 为系统级)', fontsize=8.5, color=MUTED, style='italic')
+    handles = [
+        plt.Line2D(
+            [0],
+            [0],
+            marker='o',
+            linestyle='none',
+            markerfacecolor=color,
+            markeredgecolor='white',
+            markersize=9,
+            label=name,
+        )
+        for name, color in vendors
+    ]
+    ax.legend(handles=handles, loc='upper left', ncol=2, fontsize=8.5, frameon=False)
+    ax.text(
+        5.35,
+        405,
+        '气泡面积按价格量级对数映射；Cerebras 为系统级，不与单卡价格直接可比',
+        fontsize=8.2,
+        color=MUTED,
+        style='italic',
+        ha='right',
+    )
 
     return _save(fig, 'fig_v7_ai_chip_bubble')
 
@@ -430,14 +575,23 @@ def fig_csp_asic_gantt():
         y_labels.append(company)
         for name, s, e, color in items:
             ax.barh(i, e - s, left=s, color=color, edgecolor='white', linewidth=1.5, height=0.6)
-            ax.text((s + e)/2, i, name, ha='center', va='center', fontsize=8.5, color='white', fontweight='bold')
+            ax.text(
+                (s + e) / 2,
+                i,
+                name,
+                ha='center',
+                va='center',
+                fontsize=8.5,
+                color=_readable_text_color(color),
+                fontweight='bold',
+            )
 
     ax.set_yticks(range(len(rows)))
     ax.set_yticklabels(y_labels, fontsize=10, color=TEXT)
     ax.set_xlim(2020.5, 2029)
     ax.set_xticks(range(2021, 2030))
     ax.set_xlabel('年份', fontsize=10, color=TEXT)
-    ax.set_title('图 7.x  超大规模云厂商 (CSP) 自研 AI ASIC 量产路线', fontsize=13, color=TEXT, fontweight='bold', pad=12)
+    ax.set_title('图 23.1  超大规模云厂商 (CSP) 自研 AI ASIC 量产路线', fontsize=13, color=TEXT, fontweight='bold', pad=12)
     ax.grid(axis='x', color='#D8D8D8', linestyle='--', linewidth=0.6, alpha=0.7)
     ax.set_axisbelow(True)
     ax.invert_yaxis()
@@ -450,7 +604,7 @@ def fig_csp_asic_gantt():
 def fig_localization_bars():
     fig, ax = plt.subplots(figsize=(12, 6.5))
     fig.patch.set_facecolor(BG)
-    _style(ax, title='图 10.x  半导体产业链各环节国产化率 (2024-2025 估计) 与突破目标',
+    _style(ax, title='图 38.1  半导体产业链各环节国产化率 (2024-2025 估计) 与突破目标',
            xlabel='', ylabel='国产化率 (%)')
 
     segs = ['设计 SoC', '设计 模拟', 'EDA 工具', '制造 28nm+', '制造 14nm-', '制造 7nm-',
@@ -497,9 +651,9 @@ def fig_valuation_cycle():
 
     # 阶段标注
     phases = [
-        (1.3, 'I. 萧条 / 估值见底',  'PE/PB 历史 10% 分位以下\n库存出清, 资本开支下行',  GREEN),
+        (1.3, 'I. 萧条 / 估值见底',  '估值处于自身历史低位\n库存出清, 资本开支下行',  GREEN),
         (3.3, 'II. 复苏 / 估值修复', '订单回暖, EPS 拐点\n板块 Beta > 大盘',         GOLD),
-        (5.3, 'III. 繁荣 / 估值溢价','PE 70% 分位以上\n龙头业绩兑现 + 资金面共振', RED),
+        (5.3, 'III. 繁荣 / 估值溢价','估值扩张, 拥挤度上升\n龙头业绩兑现 + 资金面共振', RED),
         (7.3, 'IV. 衰退 / 估值杀',  '产能过剩信号 + 价格回落\n机构降仓位, 资金切换',  BROWN),
     ]
     for px, title, sub, color in phases:
@@ -513,14 +667,14 @@ def fig_valuation_cycle():
                 arrowprops=dict(arrowstyle='->', color=MUTED, lw=1.5))
     ax.text(9.6, -0.7, '时间 →', fontsize=9, color=MUTED, ha='right')
 
-    ax.text(5, 4.0, '图 G.x  半导体投资估值周期四阶段示意', ha='center', fontsize=13, color=TEXT, fontweight='bold')
-    ax.text(5, 3.5, '典型周期 3-4 年, AI 算力周期与传统消费/工业周期可能错峰叠加', ha='center', fontsize=9, color=MUTED, style='italic')
+    ax.text(5, 4.0, '图 G.1  半导体投资估值周期四阶段示意', ha='center', fontsize=13, color=TEXT, fontweight='bold')
+    ax.text(5, 3.5, '阶段长度并不固定；AI 算力、存储、汽车与消费电子周期可能错峰叠加', ha='center', fontsize=9, color=MUTED, style='italic')
 
     return _save(fig, 'fig_g_valuation_cycle')
 
 
 # ============================================================
-# 图 11: AI Capex 产业链资金流向 (附录 G)
+# 图 11: AI Capex 产业链依赖与财务验证 (附录 G)
 # ============================================================
 def fig_ai_capex_flow():
     fig, ax = plt.subplots(figsize=(13, 7))
@@ -530,25 +684,27 @@ def fig_ai_capex_flow():
     ax.set_ylim(0, 8)
     ax.axis('off')
 
-    ax.text(7, 7.4, '图 G.x  AI Capex 产业链资金流向 (2024-2025, 数量级估算)',
+    ax.text(7, 7.4, '图 G.2  AI Capex 产业链依赖与财务验证链',
             ha='center', fontsize=13, color=TEXT, fontweight='bold')
-    ax.text(7, 6.95, '北美四大超算云 (Hyperscaler) 资本开支 → 系统集成 → 芯片 → 上游设备/材料',
+    ax.text(7, 6.95, '公司级 Capex 披露 → 系统交付 → 芯片/封装 → 上游；每层都需独立验证',
             ha='center', fontsize=9.5, color=MUTED)
 
     # 4 层节点
-    sources = [('Microsoft', '~80B'), ('Google', '~75B'), ('Amazon AWS', '~85B'), ('Meta', '~40B')]
-    layer1 = [('Nvidia 系统\n(B200/GB200/NVL72)', '~150B', TEAL),
-              ('CSP 自研 ASIC\n(TPU/Trainium/Maia)', '~30B', GOLD),
-              ('AMD/Intel/Other GPU', '~20B', BLUE)]
-    layer2 = [('HBM\n(SK Hynix/三星/Micron)', '~35B', PURPLE),
-              ('先进逻辑代工\n(TSMC N5/N4/N3)', '~50B', BROWN),
-              ('先进封装\n(CoWoS/SoIC)', '~20B', RED)]
-    layer3 = [('EUV/High-NA 光刻\n(ASML)', '~12B', '#446688'),
-              ('刻蚀/沉积/CMP 设备', '~18B', '#7B6B5C'),
-              ('光罩/光刻胶/材料', '~10B', '#8C7B6B')]
+    sources = [('Microsoft FY25', 'PP&E $64.6B'), ('Alphabet CY25', 'Capex $91.4B'),
+               ('Amazon CY25', 'Cash Capex $128.3B'), ('Meta CY25', 'PP&E $69.7B')]
+    layer1 = [('GPU 系统', '整机出货 × ASP', TEAL),
+              ('CSP 自研 ASIC', '部署量 × 单机用量', GOLD),
+              ('网络/存储/电力', '拓扑 × 配置', BLUE)]
+    layer2 = [('HBM', '容量 × ASP × 份额', PURPLE),
+              ('先进逻辑代工', '晶圆量 × ASP × 良率', BROWN),
+              ('先进封装', '封装量 × 单价 × 良率', RED)]
+    layer3 = [('EUV/High-NA 光刻', '订单 → 出货 → 验收', '#446688'),
+              ('刻蚀/沉积/CMP 设备', '产能 × 工艺步骤', '#7B6B5C'),
+              ('光罩/光刻胶/材料', '投片量 × 单耗', '#6F6256')]
 
     def draw_layer(items, y, label):
-        ax.text(0.3, y, label, fontsize=10, color=MUTED, va='center', fontweight='bold')
+        ax.text(0.3, y, label, fontsize=10, color=MUTED, va='center',
+                fontweight='bold', zorder=3)
         w = 13.0 / len(items)
         boxes = []
         for i, item in enumerate(items):
@@ -558,14 +714,17 @@ def fig_ai_capex_flow():
                 name, val, color = item
             x0 = 1.0 + i * w
             ax.add_patch(FancyBboxPatch((x0, y - 0.45), w - 0.3, 0.9, boxstyle='round,pad=0.03',
-                                          facecolor=color, alpha=0.85, edgecolor='none'))
-            ax.text(x0 + (w - 0.3)/2, y + 0.10, name, ha='center', va='center', fontsize=9, color='white', fontweight='bold')
-            ax.text(x0 + (w - 0.3)/2, y - 0.25, f'$ {val}', ha='center', va='center', fontsize=9.5, color='white', fontweight='bold')
+                                          facecolor=color, edgecolor='none', zorder=2))
+            text_color = _readable_text_color(color)
+            ax.text(x0 + (w - 0.3)/2, y + 0.10, name, ha='center', va='center',
+                    fontsize=9, color=text_color, fontweight='bold', zorder=3)
+            ax.text(x0 + (w - 0.3)/2, y - 0.25, val, ha='center', va='center',
+                    fontsize=8.8, color=text_color, fontweight='bold', zorder=3)
             boxes.append((x0 + (w - 0.3)/2, y))
         return boxes
 
-    b0 = draw_layer(sources, 6.0, '资金源头')
-    b1 = draw_layer(layer1, 4.5, '系统集成')
+    b0 = draw_layer(sources, 6.0, '公司级披露')
+    b1 = draw_layer(layer1, 4.5, '系统交付')
     b2 = draw_layer(layer2, 3.0, '芯片 + 封装')
     b3 = draw_layer(layer3, 1.5, '上游设备/材料')
 
@@ -573,17 +732,20 @@ def fig_ai_capex_flow():
     for src in b0:
         for tgt in b1:
             ax.annotate('', xy=(tgt[0], tgt[1] + 0.45), xytext=(src[0], src[1] - 0.45),
-                        arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.5, alpha=0.25))
+                        arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.5, alpha=0.25),
+                        zorder=0)
     for src in b1:
         for tgt in b2:
             ax.annotate('', xy=(tgt[0], tgt[1] + 0.45), xytext=(src[0], src[1] - 0.45),
-                        arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.7, alpha=0.35))
+                        arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.7, alpha=0.35),
+                        zorder=0)
     for src in b2:
         for tgt in b3:
             ax.annotate('', xy=(tgt[0], tgt[1] + 0.45), xytext=(src[0], src[1] - 0.45),
-                        arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.7, alpha=0.35))
+                        arrowprops=dict(arrowstyle='-', color=MUTED, lw=0.7, alpha=0.35),
+                        zorder=0)
 
-    ax.text(7, 0.3, '* 金额为综合 Bloomberg / IDC / Counterpoint / SEMI 公开口径的近似估算，单位 USD',
+    ax.text(7, 0.3, '* 上层为 2025 公司年报口径，非纯 AI 支出；财年与口径不同，不可直接求和或与下层做资金守恒',
             ha='center', fontsize=8, color=MUTED, style='italic')
     return _save(fig, 'fig_g_ai_capex_flow')
 
@@ -598,14 +760,14 @@ def fig_foundry_share():
 
     labels = ['TSMC\n台积电', 'Samsung\nFoundry', 'SMIC\n中芯国际', 'UMC\n联电', 'GlobalFoundries', 'HuaHong\n华虹', 'PSMC / VIS / Tower 其他']
     sizes = [62, 11, 6, 5, 5, 3, 8]
-    colors = [TEAL, GOLD, RED, BLUE, BROWN, '#A0526B', '#8C8C8C']
+    colors = [TEAL, GOLD, RED, BLUE, BROWN, '#A0526B', '#9A9A9A']
 
     wedges, texts, autotexts = ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
                                        startangle=90, pctdistance=0.78,
                                        textprops={'fontsize': 9.5, 'color': TEXT, 'fontweight': 'bold'},
                                        wedgeprops={'edgecolor': 'white', 'linewidth': 2})
-    for at in autotexts:
-        at.set_color('white')
+    for wedge, at in zip(wedges, autotexts):
+        at.set_color(_readable_text_color(wedge.get_facecolor()))
         at.set_fontweight('bold')
         at.set_fontsize(9)
 
@@ -614,7 +776,7 @@ def fig_foundry_share():
     ax.text(0, 0.08, '2024 全球', ha='center', fontsize=11, color=TEXT, fontweight='bold')
     ax.text(0, -0.12, '纯代工市场', ha='center', fontsize=11, color=TEXT, fontweight='bold')
 
-    ax.set_title('图 4.x  全球纯代工 (Pure-Play Foundry) 市场份额\n(2024 年, 来源 TrendForce)',
+    ax.set_title('图 13.1  全球纯代工 (Pure-Play Foundry) 市场份额\n(2024 年, 来源 TrendForce)',
                  fontsize=13, color=TEXT, pad=12, fontweight='bold')
     return _save(fig, 'fig_v4_foundry_share')
 
@@ -625,7 +787,7 @@ def fig_foundry_share():
 def fig_equipment_vendors():
     fig, ax = plt.subplots(figsize=(11, 5.5))
     fig.patch.set_facecolor(BG)
-    _style(ax, title='图 4.x  全球前道设备五巨头收入对比 (2020-2024, USD bn)',
+    _style(ax, title='图 12.1  全球前道设备五巨头收入对比 (2020-2024, USD bn)',
            xlabel='年份', ylabel='年收入 (USD bn)')
 
     years = ['2020', '2021', '2022', '2023', '2024']
@@ -652,19 +814,73 @@ def fig_equipment_vendors():
 # ============================================================
 # 主流程
 # ============================================================
-if __name__ == '__main__':
-    print('生成 v1.6 报告插图...')
-    fig_localization_radar()
-    fig_industry_overview()
-    fig_node_roadmap()
-    fig_litho_roadmap()
-    fig_foundry_share()
-    fig_equipment_vendors()
-    fig_packaging_quadrant()
-    fig_hbm_evolution()
-    fig_ai_chip_bubble()
-    fig_csp_asic_gantt()
-    fig_localization_bars()
-    fig_valuation_cycle()
-    fig_ai_capex_flow()
+FIGURE_BUILDERS = {
+    'localization-radar': fig_localization_radar,
+    'industry-overview': fig_industry_overview,
+    'node-roadmap': fig_node_roadmap,
+    'litho-roadmap': fig_litho_roadmap,
+    'foundry-share': fig_foundry_share,
+    'equipment-vendors': fig_equipment_vendors,
+    'packaging-quadrant': fig_packaging_quadrant,
+    'hbm-evolution': fig_hbm_evolution,
+    'ai-chip-bubble': fig_ai_chip_bubble,
+    'csp-asic-gantt': fig_csp_asic_gantt,
+    'localization-bars': fig_localization_bars,
+    'valuation-cycle': fig_valuation_cycle,
+    'ai-capex-flow': fig_ai_capex_flow,
+}
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description='生成芯片产业链报告的 13 张插图。')
+    parser.add_argument(
+        '--output-dir',
+        type=Path,
+        default=DEFAULT_OUT_DIR,
+        help=f'输出目录（默认：{DEFAULT_OUT_DIR}）',
+    )
+    parser.add_argument(
+        '--dpi',
+        type=int,
+        default=DEFAULT_DPI,
+        help=f'PNG 分辨率（默认：{DEFAULT_DPI}）',
+    )
+    parser.add_argument(
+        '--figure',
+        action='append',
+        choices=FIGURE_BUILDERS,
+        dest='figures',
+        help='只生成指定图；可重复传入。默认生成全部。',
+    )
+    parser.add_argument(
+        '--list',
+        action='store_true',
+        help='列出可用图表标识后退出。',
+    )
+    args = parser.parse_args()
+    if args.dpi < 72:
+        parser.error('--dpi 不能低于 72')
+    return args
+
+
+def main():
+    global OUT_DIR, OUTPUT_DPI
+
+    args = _parse_args()
+    if args.list:
+        print('\n'.join(FIGURE_BUILDERS))
+        return
+
+    _configure_cjk_font()
+    OUT_DIR = args.output_dir.expanduser().resolve()
+    OUTPUT_DPI = args.dpi
+    selected = args.figures or list(FIGURE_BUILDERS)
+
+    print(f'生成 {len(selected)} 张报告插图 → {OUT_DIR}')
+    for figure_name in selected:
+        FIGURE_BUILDERS[figure_name]()
     print('\n全部完成。')
+
+
+if __name__ == '__main__':
+    main()
