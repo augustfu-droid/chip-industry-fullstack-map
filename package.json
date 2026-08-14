@@ -1,11 +1,12 @@
 {
   "name": "chip-industry-fullstack-map",
   "private": true,
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "芯片产业链全栈技术图谱的 PDF 与图表构建工具",
   "type": "module",
   "scripts": {
-    "build:pdf": "node build_pdf.mjs"
+    "build:pdf": "node build_pdf.mjs",
+    "test": "python3 -B -m unittest discover -s tests -p 'test_*.py'"
   },
   "dependencies": {
     "marked": "17.0.5"

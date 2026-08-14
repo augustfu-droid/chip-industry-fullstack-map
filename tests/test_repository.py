@@ -37,9 +37,74 @@ MARKDOWN_FILES = (README, REPORT, FIGURE_NOTES)
 LINK_PATTERN = re.compile(r'!?\[[^\]]*\]\(([^)]+)\)')
 IMAGE_PATTERN = re.compile(r'!\[[^\]]+\]\(([^)]+)\)')
 HEADING_PATTERN = re.compile(r'^(#{1,6})\s+\S')
+URL_PATTERN = re.compile(r'https?://\S+')
+PUBLIC_REPORT_END = '### 修改纪要 Changelog'
+SECURITY_CODE_PATTERN = re.compile(
+    r'(?<![A-Za-z0-9])'
+    r'(?:000|001|002|003|159|300|301|430|'
+    r'51[0-9]|56[0-9]|58[0-9]|'
+    r'600|601|603|605|688|689|'
+    r'83[0-9]|87[0-9]|88[0-9]|92[0-9])'
+    r'\d{3}'
+    r'(?!\d)'
+)
+STANDARD_NUMBER_PREFIX = re.compile(
+    r'(?:GB(?:/T)?|ISO(?:/IEC)?|IEC|IEEE|JEDEC|SEMI|SAE)'
+    r'\s*(?:No\.?\s*)?$',
+    re.IGNORECASE,
+)
+PARENTHESIZED_US_TICKER = re.compile(
+    r'[（(]\s*'
+    r'(?P<ticker>[A-Z]{1,5}(?:\.[A-Z])?)'
+    r'(?P<market>\s*,\s*US)?'
+    r'\s*[）)]'
+)
+# Uppercase parenthetical tokens are often technical acronyms or ordinary
+# corporate abbreviations. Restrict the denylist to stock symbols that differ
+# from the issuer's common name, while always rejecting an explicit ", US"
+# suffix, so terms such as (HBM), (AMD), (ASML) and (UMC) are not false hits.
+US_TICKER_SYMBOLS = frozenset({
+    'ALAB', 'AMAT', 'AVGO', 'CDNS', 'COHR', 'GFS', 'INTC', 'KLAC', 'LRCX',
+    'MCHP', 'MRVL', 'MU', 'NVDA', 'NVTS', 'NXPI', 'QCOM', 'RMBS', 'SNPS',
+    'TSM', 'WOLF',
+})
+PUBLIC_INVESTMENT_LANGUAGE = re.compile(
+    r'核心受益|小仓位|核心仓位|主题性配置|确定性受益|'
+    r'从\s*A\s*股投资角度|配置建议|建议配置|买入评级|增持评级'
+)
 
 
 class RepositoryIntegrityTests(unittest.TestCase):
+    @staticmethod
+    def _public_report_text():
+        report_text = REPORT.read_text(encoding='utf-8')
+        return report_text.partition(PUBLIC_REPORT_END)[0]
+
+    @staticmethod
+    def _format_matches(matches):
+        return ', '.join(
+            f'{"line " + str(line_number) if line_number else "document"}: '
+            f'{value}'
+            for line_number, value in matches
+        )
+
+    @staticmethod
+    def _security_codes_in_text(text):
+        matches = []
+        for line_number, raw_line in enumerate(text.splitlines(), start=1):
+            # DOI suffixes, dated URL paths and document IDs are not security
+            # codes. Replacing URLs with equal-length whitespace preserves the
+            # match offsets used for contextual checks and diagnostics.
+            line = URL_PATTERN.sub(
+                lambda match: ' ' * len(match.group(0)),
+                raw_line,
+            )
+            for match in SECURITY_CODE_PATTERN.finditer(line):
+                if STANDARD_NUMBER_PREFIX.search(line[:match.start()]):
+                    continue
+                matches.append((line_number, match.group(0)))
+        return matches
+
     def test_python_source_parses(self):
         ast.parse(GENERATOR.read_text(encoding='utf-8'))
         ast.parse(PDF_QA.read_text(encoding='utf-8'))
@@ -70,7 +135,15 @@ class RepositoryIntegrityTests(unittest.TestCase):
         self.assertIn('Tagged:          yes', pdf_info)
         pages_match = re.search(r'^Pages:\s+(\d+)$', pdf_info, re.MULTILINE)
         self.assertIsNotNone(pages_match)
-        self.assertGreaterEqual(int(pages_match.group(1)), 140)
+        pdf_pages = int(pages_match.group(1))
+        readme_pages_match = re.search(
+            r'PDF 已随 Markdown 更新[^\n]+共\s*(\d+)\s*页',
+            README.read_text(encoding='utf-8'),
+        )
+        self.assertIsNotNone(readme_pages_match)
+        self.assertEqual(pdf_pages, int(readme_pages_match.group(1)))
+        self.assertGreaterEqual(pdf_pages, 120)
+        self.assertLessEqual(pdf_pages, 180)
 
         text = subprocess.run(
             ['pdftotext', str(VERSIONED_PDF), '-'],
@@ -78,12 +151,14 @@ class RepositoryIntegrityTests(unittest.TestCase):
             capture_output=True,
             text=True,
         ).stdout
+        self.assertGreater(len(text), 250_000)
         self.assertNotIn('\ufffd', text)
         for required_text in (
             REPORT_VERSION,
             '第 39 章',
             '附录 G',
             '附录 H',
+            '7,200–7,450 亿美元',
             '修改纪要 Changelog',
         ):
             self.assertIn(required_text, text)
@@ -232,6 +307,112 @@ class RepositoryIntegrityTests(unittest.TestCase):
         report_text = REPORT.read_text(encoding='utf-8')
         self.assertNotRegex(report_text, r'（https?://[^）]+）')
 
+    def test_public_report_has_no_security_identifiers(self):
+        public_text = self._public_report_text()
+        identifiers = [
+            (line_number, f'六位证券代码 {code}')
+            for line_number, code in self._security_codes_in_text(public_text)
+        ]
+        for line_number, raw_line in enumerate(
+            public_text.splitlines(),
+            start=1,
+        ):
+            line = URL_PATTERN.sub(
+                lambda match: ' ' * len(match.group(0)),
+                raw_line,
+            )
+            for match in PARENTHESIZED_US_TICKER.finditer(line):
+                ticker = match.group('ticker')
+                if match.group('market') or ticker in US_TICKER_SYMBOLS:
+                    identifiers.append(
+                        (line_number, f'括号内美股 ticker {match.group(0)}')
+                    )
+
+        self.assertEqual(
+            [],
+            identifiers,
+            '公开版含证券标识：' + self._format_matches(identifiers),
+        )
+
+    def test_security_code_filter_ignores_dates_standards_and_urls(self):
+        non_security_numbers = (
+            '维护月份 202605\n'
+            '标准号 ISO 688981\n'
+            '论文 https://doi.org/10.1109/JPROC.1998.658762\n'
+        )
+        self.assertEqual([], self._security_codes_in_text(non_security_numbers))
+        self.assertEqual(
+            [(1, '688981')],
+            self._security_codes_in_text('证券代码 688981'),
+        )
+
+    def test_public_report_has_no_investment_action_language(self):
+        matches = []
+        for line_number, line in enumerate(
+            self._public_report_text().splitlines(),
+            start=1,
+        ):
+            matches.extend(
+                (line_number, match.group(0))
+                for match in PUBLIC_INVESTMENT_LANGUAGE.finditer(line)
+            )
+        self.assertEqual(
+            [],
+            matches,
+            '公开版含操作或配置措辞：' + self._format_matches(matches),
+        )
+
+    def test_report_rejects_known_hard_errors_and_tracks_current_status(self):
+        report_text = self._public_report_text()
+        forbidden_patterns = {
+            'CPO 旧功耗换算 2.6MW': r'2\.6\s*MW',
+            'CPO 旧电量换算 2.3GWh': r'2\.3\s*GWh',
+            '无一手依据的 Loihi 3': r'\bLoihi\s*3\b',
+            '已取消路线的 18A Falcon Shores 量产': (
+                r'\b18A\s+Falcon\s+Shores\s+量产'
+            ),
+        }
+        problems = []
+        for line_number, line in enumerate(report_text.splitlines(), start=1):
+            for description, pattern in forbidden_patterns.items():
+                if re.search(pattern, line):
+                    problems.append((line_number, description))
+
+        body_lines = [
+            line
+            for line in report_text.splitlines()
+            if not re.match(r'^\[[^]]+\]\s', line)
+        ]
+        falcon_status = [
+            line
+            for line in body_lines
+            if 'Falcon Shores' in line
+            and re.search(r'取消|不再|终止|放弃', line)
+            and re.search(r'商业化|商业产品', line)
+        ]
+        ironwood_status = [
+            line
+            for line in body_lines
+            if 'Ironwood' in line
+            and re.search(r'\bGA\b|全面可用|一般可用|正式商用', line)
+        ]
+        if not falcon_status:
+            problems.append((
+                0,
+                '正文缺少 Falcon Shores 取消商业化/不再作为商业产品状态',
+            ))
+        if not ironwood_status:
+            problems.append((
+                0,
+                '正文缺少 Ironwood 已 GA（一般可用）/正式商用状态',
+            ))
+        self.assertEqual(
+            [],
+            problems,
+            '公开版含已知硬错误或缺少当前状态：'
+            + self._format_matches(problems),
+        )
+
     def test_financial_appendix_uses_auditable_scope(self):
         report_text = REPORT.read_text(encoding='utf-8')
         self.assertNotIn('2025E 合计 Capex 约 3,500 亿美元', report_text)
@@ -251,6 +432,31 @@ class RepositoryIntegrityTests(unittest.TestCase):
         uses = set(re.findall(r'\[G-(\d+)\]', appendix))
         definitions = set(re.findall(r'^\[G-(\d+)\]\s', appendix, re.MULTILINE))
         self.assertSetEqual(uses, definitions)
+
+    def test_financial_appendix_tracks_latest_capex_guidance(self):
+        report_text = REPORT.read_text(encoding='utf-8')
+        appendix = report_text[
+            report_text.index('### 附录 G'):
+            report_text.index('### 附录 H')
+        ]
+        for required_text in (
+            '约 175 十亿美元',
+            '195–205 十亿美元',
+            '130–145 十亿美元',
+            '约 220 十亿美元',
+            '7,200–7,450 亿美元',
+            '175+195+130+220=720',
+            '175+205+145+220=745',
+            '租赁会计分类变化',
+        ):
+            self.assertIn(required_text, appendix)
+        for stale_text in (
+            '7,150–7,400 亿美元',
+            '7,350–7,600 亿美元',
+            '190+195+130+200=715',
+            '190+205+145+200=740',
+        ):
+            self.assertNotIn(stale_text, appendix)
 
 
 if __name__ == '__main__':

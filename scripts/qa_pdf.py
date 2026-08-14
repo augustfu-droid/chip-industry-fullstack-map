@@ -115,12 +115,18 @@ def inspect_pdf(pdf_path: Path, rendered_pages: list[Path]) -> dict[str, object]
         for page in reader.pages
     }
     blank_pages = []
+    sparse_reference_pages = []
     for index, text in enumerate(page_text, start=1):
         if index in (1, len(page_text)):
             continue
+        content_stream = reader.pages[index - 1].get_contents()
+        uses_xobject = bool(
+            content_stream is not None
+            and re.search(rb'/\S+\s+Do\b', content_stream.get_data())
+        )
         cleaned = text
         cleaned = cleaned.replace(REPORT_VERSION, '')
-        cleaned = cleaned.replace('大队长出品', '')
+        cleaned = re.sub(r'大\s*队\s*长\s*出\s*品', '', cleaned)
         cleaned = cleaned.replace('fqsx@mail.ustc.edu.cn', '')
         cleaned = re.sub(r'\b\d+\s*/\s*\d+\b', '', cleaned)
         lines = [
@@ -128,8 +134,24 @@ def inspect_pdf(pdf_path: Path, rendered_pages: list[Path]) -> dict[str, object]
             for line in cleaned.splitlines()
             if re.sub(r'\s+', '', line)
         ]
-        if len(lines) <= 1 and sum(map(len, lines)) < 80:
+        # Watermarks and running headers can be extracted as several tiny
+        # fragments, so line count alone misses truly empty or single-bullet
+        # pages. A normalized content budget catches those while ordinary
+        # reference pages remain comfortably above the threshold.
+        normalized_characters = sum(map(len, lines))
+        if normalized_characters < 100 and not uses_xobject:
             blank_pages.append(index)
+        citation_entries = re.findall(
+            r'^\s*\[(?:\d+|[A-Z])-\d+\]\s',
+            cleaned,
+            re.MULTILINE,
+        )
+        if (
+            citation_entries
+            and normalized_characters < 400
+            and not uses_xobject
+        ):
+            sparse_reference_pages.append(index)
     rendered_sizes = set()
     edge_touch_pages = []
     for image_path in rendered_pages:
@@ -181,6 +203,7 @@ def inspect_pdf(pdf_path: Path, rendered_pages: list[Path]) -> dict[str, object]
         'text_characters': len(combined_text),
         'replacement_characters': combined_text.count('\ufffd'),
         'near_blank_pages': blank_pages,
+        'sparse_reference_pages': sparse_reference_pages,
         'figure_captions_found': len(set(re.findall(r'图\s+(?:\d+\.\d+|G\.\d+)', combined_text))),
         'bookmarks': count_outline(reader.outline),
         'external_links': len(external_urls),
@@ -215,6 +238,7 @@ def main() -> int:
         report['pages'] == report['rendered_pages']
         and report['replacement_characters'] == 0
         and report['near_blank_pages'] == []
+        and report['sparse_reference_pages'] == []
         and report['edge_touch_pages'] == []
         and report['figure_captions_found'] == 13
         and report['bookmarks'] >= 300

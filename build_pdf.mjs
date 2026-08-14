@@ -80,7 +80,7 @@ function decorateHtml(html) {
       '<h2$2 id="$1">',
     )
     .replace(
-      /<hr>\s*(<h[23](?: class="(?:chapter-title|appendix-title|volume-title)")?[^>]*>)/g,
+      /(?:<hr>\s*)+(<h[23](?: class="(?:chapter-title|appendix-title|volume-title)")?[^>]*>)/g,
       '$1',
     )
     .replace(

@@ -281,15 +281,13 @@ def fig_node_roadmap():
     ax.add_patch(Rectangle((2019, 2.8), 12, 0.12, color=TEAL, alpha=0.5))
 
     milestones = [
-        (2020, 'N5 / 5nm\nFinFET 极限', '台积电', TEAL, 'top', 2020.0),
-        (2022, 'N3 / 3nm\nFinFET 最后一代', '台积电 / 三星', TEAL, 'bottom', 2022.0),
-        (2022, 'SF3 GAA\nNanosheet 首发', '三星', GOLD, 'top', 2022.0),
-        (2025, 'N2 / 2nm\nGAA Nanosheet', '台积电', GOLD, 'top', 2025.0),
-        (2025, '18A\nRibbonFET\n+ BSPDN', 'Intel', BROWN, 'bottom', 2024.55),
-        (2026, 'A14 / 1.4nm', '台积电', GOLD, 'bottom', 2026.15),
-        (2027, '14A\nHigh-NA EUV', 'Intel', BROWN, 'top', 2026.9),
-        (2028, 'A10 / 1nm\nCFET 预研', '台积电', RED, 'top', 2028.25),
-        (2030, 'CFET 量产\n3D 堆叠晶体管', '行业目标', RED, 'bottom', 2030.0),
+        (2020, '[F] N5\nFinFET', 'TSMC', TEAL, 'top', 2020.0),
+        (2022, '[F] N3 / SF3\nFinFET / GAA', 'TSMC / Samsung', GOLD, 'bottom', 2022.0),
+        (2025, '[F] N2 HVM\nGAA Nanosheet', 'TSMC', GOLD, 'top', 2025.0),
+        (2025, '[F] 18A\n进入生产', 'Intel', BROWN, 'bottom', 2024.7),
+        (2026, '[T] N2P / A16\n公司目标', 'TSMC', GOLD, 'top', 2026.35),
+        (2028, '[T] A14\n公司目标', 'TSMC', GOLD, 'bottom', 2028.0),
+        (2030, '[A] CFET\n研究窗口', '行业研究', RED, 'top', 2030.0),
     ]
 
     box_width = 1.15
@@ -311,7 +309,7 @@ def fig_node_roadmap():
     for y in range(2019, 2032, 2):
         ax.text(y, 2.4, str(y), ha='center', va='top', fontsize=9, color=MUTED, fontweight='bold')
 
-    ax.text(2025, 5.5, '图 10.1  全球先进制程演进时间线 (FinFET → GAA Nanosheet → CFET)',
+    ax.text(2025, 5.5, '图 10.1  全球先进制程证据状态时间线（F 已发生 / T 公司目标 / A 研究假设）',
             ha='center', fontsize=13, color=TEXT, fontweight='bold')
 
     # Legend
@@ -334,38 +332,34 @@ def fig_node_roadmap():
 def fig_litho_roadmap():
     fig, ax = plt.subplots(figsize=(12, 6))
     fig.patch.set_facecolor(BG)
-    _style(ax, title='图 9.1  EUV 光刻系统路线: NA / 单次曝光极限 / 量产节点',
-           xlabel='年份', ylabel='单次曝光最小线宽 (nm)')
+    _style(ax, title='图 9.1  EUV / High-NA 平台状态（设备事实与客户目标分开）',
+           xlabel='年份', ylabel='数值孔径 NA')
 
     # 各系列独立建模，避免把 High-NA 首点错误连接到 NA=0.33 路线。
-    nxe_years = [2019, 2021, 2023]
-    nxe_line_width = [13.5, 13.0, 12.5]
-    high_na_years = [2025, 2027, 2030]
-    high_na_line_width = [8.5, 8.0, 5.5]
-    hyper_na_years = [2029, 2031]
-    hyper_na_line_width = [5.5, 4.0]
+    nxe_years = [2019, 2023, 2026]
+    nxe_na = [0.33, 0.33, 0.33]
+    high_na_years = [2023, 2026, 2027.5]
+    high_na_na = [0.55, 0.55, 0.55]
 
-    ax.plot(nxe_years, nxe_line_width, 'o-', color=TEAL, linewidth=2.5, markersize=9,
+    ax.plot(nxe_years, nxe_na, 'o-', color=TEAL, linewidth=2.5, markersize=9,
             label='NXE:3400/3600 系列 (NA=0.33)')
-    ax.plot(high_na_years, high_na_line_width, 's-', color=GOLD, linewidth=2.5, markersize=9,
+    ax.plot(high_na_years, high_na_na, 's-', color=GOLD, linewidth=2.5, markersize=9,
             label='EXE:5000 系列 (High-NA, NA=0.55)')
-    ax.plot(hyper_na_years, hyper_na_line_width, '^--', color=RED, linewidth=2, markersize=9, alpha=0.7,
-            label='Hyper-NA (NA=0.75, 规划)')
 
     annotations = [
-        (2019, 13.5, 'EUV 量产元年\nTSMC N7+'),
-        (2023, 12.5, 'N3/N2 量产工具'),
-        (2025, 8.5, 'High-NA 首台\nIntel 18A'),
-        (2027, 8.0, '台积电 A14\n首批 High-NA'),
-        (2030, 5.5, 'A10 / CFET\n双重曝光'),
+        (2019, 0.33, '[F] EUV 量产导入'),
+        (2023, 0.55, '[F] 首套 High-NA 系统'),
+        (2026, 0.55, '[T] 年末满足 HVM 要求'),
+        (2027.5, 0.55, '[T] 2027–2028\n客户插入窗口'),
     ]
     for x, y, t in annotations:
-        ax.annotate(t, xy=(x, y), xytext=(x, y + 1.8), fontsize=8, ha='center', color=TEXT,
+        offset = 0.055 if y > 0.4 else -0.055
+        ax.annotate(t, xy=(x, y), xytext=(x, y + offset), fontsize=8, ha='center', color=TEXT,
                     arrowprops=dict(arrowstyle='->', color=MUTED, lw=0.7))
 
-    ax.legend(loc='upper right', fontsize=9, frameon=False)
-    ax.set_xlim(2018, 2032)
-    ax.set_ylim(0, 18)
+    ax.legend(loc='center right', fontsize=9, frameon=False)
+    ax.set_xlim(2018, 2029)
+    ax.set_ylim(0.22, 0.66)
     return _save(fig, 'fig_v4_litho_roadmap')
 
 
@@ -415,11 +409,11 @@ def fig_hbm_evolution():
     _style(ax, title='图 20.1  HBM 高带宽内存代际演进 (容量 / 带宽 / 堆叠层数)',
            xlabel='', ylabel='单 Stack 带宽 (GB/s)')
 
-    gens = ['HBM2', 'HBM2E', 'HBM3', 'HBM3E', 'HBM4', 'HBM4E', 'HBM5']
-    bw = [256, 460, 819, 1229, 2048, 2560, 4096]
-    cap = [8, 16, 24, 36, 48, 64, 96]   # GB per stack
-    layers = [8, 8, 12, 12, 16, 16, 20]
-    years = [2018, 2020, 2022, 2024, 2026, 2027, 2029]
+    gens = ['HBM2', 'HBM2E', 'HBM3', 'HBM3E', 'HBM4', 'HBM4E 样品']
+    bw = [256, 460, 819, 1200, 2800, 3600]
+    cap = [8, 16, 24, 24, 36, 48]   # representative disclosed product, GB per stack
+    layers = [8, 8, 12, 8, 12, 12]
+    years = [2018, 2020, 2022, 2024, 2026, 2026]
 
     x = np.arange(len(gens))
     bars = ax.bar(x - 0.2, bw, 0.4, color=TEAL, alpha=0.85, label='带宽 GB/s (左轴)')
@@ -434,11 +428,11 @@ def fig_hbm_evolution():
     ax2.spines['top'].set_visible(False)
     ax2.set_ylabel('单 Stack 容量 (GB)', color=GOLD, fontsize=10)
     ax2.tick_params(axis='y', colors=GOLD)
-    ax2.set_ylim(0, 110)
+    ax2.set_ylim(0, 60)
 
     ax.set_xticks(x)
     ax.set_xticklabels([f'{g}\n({y}年 · {l} 层)' for g, y, l in zip(gens, years, layers)], fontsize=9.5, color=TEXT)
-    ax.set_ylim(0, 4800)
+    ax.set_ylim(0, 4100)
     ax.legend(loc='upper left', fontsize=9, frameon=False)
     ax2.legend(loc='upper left', bbox_to_anchor=(0, 0.92), fontsize=9, frameon=False)
     return _save(fig, 'fig_v6_hbm_evolution')

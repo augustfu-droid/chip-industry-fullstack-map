@@ -263,17 +263,17 @@ h5 {
 .chapter-references {
   color: #42586b;
   font-family: "Hiragino Sans GB", "PingFang SC", sans-serif;
-  font-size: 7.85pt;
-  line-height: 1.42;
+  font-size: 7.2pt;
+  line-height: 1.22;
 }
 
 .chapter-references h4 {
-  margin-top: 5mm;
-  margin-bottom: 2mm;
+  margin-top: 3mm;
+  margin-bottom: 1mm;
 }
 
 .chapter-references p {
-  margin-bottom: 1.35mm;
+  margin-bottom: 0.25mm;
   text-align: left;
 }
 
