@@ -159,6 +159,7 @@ class RepositoryIntegrityTests(unittest.TestCase):
             '附录 G',
             '附录 H',
             '7,200–7,450 亿美元',
+            '96.221 十亿美元',
             '修改纪要 Changelog',
         ):
             self.assertIn(required_text, text)
@@ -406,6 +407,30 @@ class RepositoryIntegrityTests(unittest.TestCase):
                 0,
                 '正文缺少 Ironwood 已 GA（一般可用）/正式商用状态',
             ))
+        rubin_status = [
+            line
+            for line in body_lines
+            if 'Rubin' in line
+            and re.search(r'公司自报量产|全量生产', line)
+            and re.search(r'机架运行|合作伙伴', line)
+        ]
+        if not rubin_status:
+            problems.append((
+                0,
+                '正文缺少 Rubin 公司自报量产与合作伙伴机架运行状态',
+            ))
+        groq_status = [
+            line
+            for line in body_lines
+            if 'Groq 3 LPX' in line
+            and re.search(r'全量生产', line)
+            and re.search(r'采用|可用', line)
+        ]
+        if not groq_status:
+            problems.append((
+                0,
+                '正文缺少 Groq 3 LPX 全量生产与采用边界',
+            ))
         self.assertEqual(
             [],
             problems,
@@ -457,6 +482,22 @@ class RepositoryIntegrityTests(unittest.TestCase):
             '190+205+145+200=740',
         ):
             self.assertNotIn(stale_text, appendix)
+
+    def test_financial_appendix_tracks_nvidia_q2_fy2027(self):
+        report_text = REPORT.read_text(encoding='utf-8')
+        appendix = report_text[
+            report_text.index('### 附录 G'):
+            report_text.index('### 附录 H')
+        ]
+        for required_text in (
+            '96.221 十亿美元',
+            '89.0 十亿美元',
+            '24.077 十亿美元',
+            '21.341 十亿美元',
+            '108.0 十亿美元 ±2%',
+            '应收与存货分别消耗 22.346 与 5.784 十亿美元经营现金',
+        ):
+            self.assertIn(required_text, appendix)
 
 
 if __name__ == '__main__':

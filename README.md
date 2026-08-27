@@ -9,13 +9,13 @@
 ## 快速入口
 
 - [在线阅读 Markdown 全文](芯片产业链全栈技术图谱_公开版.md)
-- [下载最新版 PDF（v1.11-public）](output/pdf/芯片产业链全栈技术图谱_公开版_v1.11-public.pdf)
+- [下载最新版 PDF（v1.12-public）](output/pdf/芯片产业链全栈技术图谱_公开版_v1.12-public.pdf)
 - [PDF 兼容入口](芯片产业链全栈技术图谱_公开版.pdf)
 - [浏览 13 张高清图表](figures/)
 - [查看图表数据与口径说明](figures/README.md)
 - [查看可复现制图脚本](gen_figures.py)
 
-> PDF 已随 Markdown 更新到 v1.11-public（2026-08-14），共 138 页，内含 13 张图表、可点击目录、书签、页码和嵌入式中文字体。PDF 与 Markdown 均为当前版本。
+> PDF 已随 Markdown 更新到 v1.12-public（2026-08-27），共 139 页，内含 13 张图表、可点击目录、书签、页码和嵌入式中文字体。PDF 与 Markdown 均为当前版本。
 
 ## 内容结构
 
@@ -76,7 +76,7 @@ npm run build:pdf
 python scripts/qa_pdf.py
 ```
 
-正式产物位于 `output/pdf/芯片产业链全栈技术图谱_公开版_v1.11-public.pdf`，兼容入口为仓库根目录同名 PDF；中间 HTML、逐页渲染图和联系表保存在已忽略的 `tmp/pdfs/`。如系统没有 Poppler，请先安装 `pdftoppm`，或通过 `--pdftoppm` 指定其路径。
+正式产物位于 `output/pdf/芯片产业链全栈技术图谱_公开版_v1.12-public.pdf`，兼容入口为仓库根目录同名 PDF；中间 HTML、逐页渲染图和联系表保存在已忽略的 `tmp/pdfs/`。如系统没有 Poppler，请先安装 `pdftoppm`，或通过 `--pdftoppm` 指定其路径。
 
 ## 关键技术议题
 
@@ -92,14 +92,14 @@ python scripts/qa_pdf.py
 
 ## 产业研究与财务闭环
 
-v1.11 延续并更新这条可证伪链条，不把技术路线和估值倍数并列展示：
+v1.12 延续并更新这条可证伪链条，不把技术路线和估值倍数并列展示：
 
 ```text
 技术性能/成本 → 客户验证 → 真实需求 → 产能/良率
                  → 份额与 ASP → 收入/毛利/现金流 → 正常化估值
 ```
 
-附录 G 包含三张表勾稽、存货/折旧/研发资本化/收入确认检查、会计红旗、情景敏感性、F/A/J（事实/假设/判断）分层以及十二字段子赛道研究卡。v1.11 更新 Microsoft、Alphabet、Meta、Amazon 与 Oracle 口径，并纳入 2026 年 8 月制造、设备、网络和光通信增量披露；不同财年、租赁和非 AI 资产支出仍不直接混加。
+附录 G 包含三张表勾稽、存货/折旧/研发资本化/收入确认检查、会计红旗、情景敏感性、F/A/J（事实/假设/判断）分层以及十二字段子赛道研究卡。v1.12 新增 NVIDIA FY2027 Q2 的收入、毛利、现金流、应收和存货勾稽，并纳入 Rubin、Groq 3 LPX、Intel Hot Chips 2026 与 Micron 长周期研发计划；不同财年、租赁、非 AI 支出和供应商收入仍不直接混加。
 
 ## 许可
 
@@ -109,6 +109,8 @@ v1.11 延续并更新这条可证伪链条，不把技术路线和估值倍数�
 
 ## 版本
 
+- v1.12-public（2026-08-27）：更新 NVIDIA FY2027 Q2、Vera Rubin 与 Groq 3 LPX 量产证据、Spectrum-6 光互连交付信号、Intel Hot Chips 2026 架构及 Micron 长周期研发计划；严格区分公司自报量产、合作伙伴机架、计划采用、客户验收与财务兑现
+- v1.12-public PDF（2026-08-27）：重建 139 页 A4 排版并复核目录、空白页、稀疏参考文献页、边界、长链接、字体、书签、外链与 13 张图表
 - v1.11-public（2026-08-14）：回填三家 HBM4 量产/出货与两家 HBM4E 样品；修正 Falcon Shores、Ironwood、Mac Studio、Gaudi 3、SF2Z、Tata/PSMC 等硬事实；更新 Microsoft、Alphabet、Meta、Amazon 与 Oracle 口径及 8 月增量财务披露
 - v1.11-public PDF（2026-08-14）：重建 138 页 A4 排版，复核目录、空白页、稀疏参考文献页、边界、长链接、字体、书签、外链与 13 张图表
 - v1.10-public（2026-08-09）：更新 HBM4E、SPHBM4、High-NA、N2/18A/2nm 协作、BIS 政策与 2026 云厂商 Capex；路线图改为事实/目标/假设三级状态
