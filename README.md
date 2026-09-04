@@ -15,7 +15,7 @@
 - [查看图表数据与口径说明](figures/README.md)
 - [查看可复现制图脚本](gen_figures.py)
 
-> PDF 已随 Markdown 更新到 v1.13-public（2026-09-04），共 142 页，内含 13 张图表、可点击目录、书签、页码和嵌入式中文字体。PDF 与 Markdown 均为当前版本。
+> PDF 已随 Markdown 更新到 v1.13-public（2026-09-04），共 143 页，内含 13 张图表、可点击目录、书签、页码和嵌入式中文字体。PDF 与 Markdown 均为当前版本。
 
 ## 内容结构
 
@@ -99,7 +99,7 @@ v1.13 延续并更新这条可证伪链条，不把技术路线和估值倍数�
                  → 份额与 ASP → 收入/毛利/现金流 → 正常化估值
 ```
 
-附录 G 包含三张表勾稽、存货/折旧/研发资本化/收入确认检查、会计红旗、情景敏感性、F/A/J（事实/假设/判断）分层以及十二字段子赛道研究卡。v1.13 在保留 NVIDIA 与云厂商验证链的基础上，新增 Broadcom、Marvell、Synopsys 的收入、毛利、现金流、并表与客户集中度拆分；公司定义的 AI 半导体、数据中心终端市场、Design Automation 和总收入不直接混加，合同、backlog 与认股权证条件也不冒充已确认收入。
+附录 G 包含三张表勾稽、存货/折旧/研发资本化/收入确认检查、会计红旗、情景敏感性、F/A/J（事实/假设/判断）分层以及十二字段子赛道研究卡。v1.13 在保留英伟达（NVIDIA）与云厂商验证链的基础上，新增博通（Broadcom）、美满电子（Marvell）、新思科技（Synopsys）的收入、毛利、现金流、并表与客户集中度拆分；公司定义的 AI 半导体、数据中心终端市场、Design Automation 和总收入不直接混加，合同、backlog 与认股权证条件也不冒充已确认收入。9 月 4 日同版维护又补齐相关公司的常用中文名，并校正新思科技 Design IP 精度、SK siltron 拼写及环球晶圆（GlobalWafers）公司映射。
 
 ## 许可
 
@@ -109,8 +109,8 @@ v1.13 延续并更新这条可证伪链条，不把技术路线和估值倍数�
 
 ## 版本
 
-- v1.13-public（2026-09-04）：填补 ASIC 设计服务商章节；以 SEC 文件拆分 Broadcom AI 半导体、Marvell 数据中心和 Synopsys Design Automation 的实际收入，并明确软件、网络、并表、客户集中度、合同与收入确认边界
-- v1.13-public PDF（2026-09-04）：重建 142 页 A4 排版并复核第 13 页、目录、空白页、稀疏参考文献页、边界、长链接、字体、书签、外链与 13 张图表
+- v1.13-public（2026-09-04）：填补 ASIC 设计服务商章节；以 SEC 文件拆分博通（Broadcom）AI 半导体、美满电子（Marvell）数据中心和新思科技（Synopsys）Design Automation 的实际收入，并明确软件、网络、并表、客户集中度、合同与收入确认边界；同版补齐公司常用中文名，校正 Design IP 精度、SK siltron 拼写及环球晶圆（GlobalWafers）映射
+- v1.13-public PDF（2026-09-04）：重建 143 页 A4 排版并复核第 13 页、目录、空白页、稀疏参考文献页、边界、长链接、字体、书签、外链与 13 张图表
 - v1.12-public（2026-08-27）：更新 NVIDIA FY2027 Q2、Vera Rubin 与 Groq 3 LPX 量产证据、Spectrum-6 光互连交付信号、Intel Hot Chips 2026 架构及 Micron 长周期研发计划；严格区分公司自报量产、合作伙伴机架、计划采用、客户验收与财务兑现
 - v1.12-public PDF（2026-08-27）：重建 139 页 A4 排版并复核目录、空白页、稀疏参考文献页、边界、长链接、字体、书签、外链与 13 张图表
 - v1.11-public（2026-08-14）：回填三家 HBM4 量产/出货与两家 HBM4E 样品；修正 Falcon Shores、Ironwood、Mac Studio、Gaudi 3、SF2Z、Tata/PSMC 等硬事实；更新 Microsoft、Alphabet、Meta、Amazon 与 Oracle 口径及 8 月增量财务披露

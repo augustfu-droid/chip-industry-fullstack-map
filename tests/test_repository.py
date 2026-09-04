@@ -163,6 +163,8 @@ class RepositoryIntegrityTests(unittest.TestCase):
             '16.7 十亿美元',
             '2.1715 十亿美元',
             '2.4768 十亿美元',
+            '博通（Broadcom）',
+            '4.738 亿美元',
             '修改纪要 Changelog',
         ):
             self.assertIn(required_text, text)
@@ -513,10 +515,39 @@ class RepositoryIntegrityTests(unittest.TestCase):
             '不能与半导体解决方案收入重复相加',
             '数据中心口径还含以太网、服务器、存储与 DCI',
             '认股权证归属条件不是已承诺订单或已确认收入',
-            'Design Automation 也包含 Ansys',
+            'Design Automation 也包含安似科技',
             '不能当作纯 EDA 有机增速',
         ):
             self.assertIn(required_text, appendix)
+
+    def test_v113_company_names_and_precision_are_consistent(self):
+        report_text = self._public_report_text()
+        for required_text in (
+            '博通（Broadcom）',
+            '美满电子（Marvell）',
+            '谷歌（Google）',
+            '新思科技（Synopsys）',
+            '安似科技（Ansys）',
+            '光互连初创公司 Celestial AI',
+            'PCIe/CXL 交换芯片公司 XConn',
+            'Design IP 收入 4.738 亿美元',
+            'Design IP 0.4738 十亿美元',
+            'SK siltron（韩国硅晶圆厂商',
+            '环球晶圆（GlobalWafers，中国台湾）',
+            '三星电子（Samsung Electronics）',
+            '胜高（SUMCO）、世创（Siltronic）、环球晶圆（GlobalWafers，硅片）',
+        ):
+            self.assertIn(required_text, report_text)
+
+        for stale_text in (
+            'Design IP 收入 4.739 亿美元',
+            'Design IP 0.4739 十亿美元',
+            'SK Siltrec',
+            '台胜科（Globalwafers',
+            'Samsung 与 Broadcom',
+            '信越化工、SUMCO、Siltronic、GlobalWafers',
+        ):
+            self.assertNotIn(stale_text, report_text)
 
 
 if __name__ == '__main__':
