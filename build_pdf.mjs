@@ -76,6 +76,10 @@ function decorateHtml(html) {
     .replace(/<h3>(第\s*\d+\s*章[^<]*)<\/h3>/g, '<h3 class="chapter-title">$1</h3>')
     .replace(/<h3>(附录\s+[A-H][^<]*)<\/h3>/g, '<h3 class="appendix-title">$1</h3>')
     .replace(
+      /<h4>(B\.5\s+材料路线图[^<]*)<\/h4>/g,
+      '<h4 class="appendix-subsection-break">$1</h4>',
+    )
+    .replace(
       /(?:<p>)?<a id="([^"]+)"><\/a>(?:<\/p>)?\s*<h2([^>]*)>/g,
       '<h2$2 id="$1">',
     )

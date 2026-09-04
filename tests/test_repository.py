@@ -160,6 +160,9 @@ class RepositoryIntegrityTests(unittest.TestCase):
             '附录 H',
             '7,200–7,450 亿美元',
             '96.221 十亿美元',
+            '16.7 十亿美元',
+            '2.1715 十亿美元',
+            '2.4768 十亿美元',
             '修改纪要 Changelog',
         ):
             self.assertIn(required_text, text)
@@ -496,6 +499,22 @@ class RepositoryIntegrityTests(unittest.TestCase):
             '21.341 十亿美元',
             '108.0 十亿美元 ±2%',
             '应收与存货分别消耗 22.346 与 5.784 十亿美元经营现金',
+        ):
+            self.assertIn(required_text, appendix)
+
+    def test_v113_disclosures_preserve_metric_boundaries(self):
+        report_text = self._public_report_text()
+        appendix = report_text[
+            report_text.index('### 附录 G'):
+            report_text.index('### 附录 H')
+        ]
+        for required_text in (
+            'AI 半导体指标覆盖定制加速器与网络',
+            '不能与半导体解决方案收入重复相加',
+            '数据中心口径还含以太网、服务器、存储与 DCI',
+            '认股权证归属条件不是已承诺订单或已确认收入',
+            'Design Automation 也包含 Ansys',
+            '不能当作纯 EDA 有机增速',
         ):
             self.assertIn(required_text, appendix)
 
